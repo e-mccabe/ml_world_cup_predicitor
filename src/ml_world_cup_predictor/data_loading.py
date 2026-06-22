@@ -19,12 +19,21 @@ def get_data_path(data_directory:Path) -> Path:
     return path
 
 
-def load_data(data_directory: Path) -> dict[str,pd.DataFrame]:
+def load_raw_data(data_directory: Path) -> dict[str,pd.DataFrame]:
     frames = {file_path.stem : pd.read_csv(file_path) for file_path in sorted(data_directory.glob('*csv'))}
 
     for frame in frames.values():
-        if 'date' in frame.columns:
-            frame['date'] = pd.to_datetime(frame['date'],errors = 'coerce')
-    
+        frame = _assign_date(frame)    
     return frames
 
+def load_processed_data(processed_directory:Path) -> pd.DataFrame:
+
+    df = pd.read_csv(processed_directory)    
+
+    return _assign_date(df)
+
+
+def _assign_date(df:pd.DataFrame) -> pd.DataFrame:
+
+    if 'date' in df.columns:
+        df['date'] = pd.to_datetime(df['date'], errors='coerce')

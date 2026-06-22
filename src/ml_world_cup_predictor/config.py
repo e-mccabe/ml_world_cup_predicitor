@@ -1,9 +1,17 @@
 
 from pathlib import Path
 
-DATA_DIRECTORY = Path("../data/international-football-results")
 
-PROCESSED_DIRECTORY = Path("/data/processed_data")
+def find_root(marker = 'pyproject.toml'):
+    path = Path(__file__).resolve()
+    for parent in path.parents:
+        if (parent / marker).exists():
+            return parent
+    raise FileNotFoundError(f'No file: {marker} found above {__file__}')
+
+PROJECT_ROOT = find_root()
+DATA_DIRECTORY = PROJECT_ROOT / 'data' / 'international-football-results'
+PROCESSED_DIRECTORY = PROJECT_ROOT / 'data' / 'processed'
 
 STARTING_ELO = 1500
 

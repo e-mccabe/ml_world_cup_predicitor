@@ -1,13 +1,13 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from ml_world_cup_predictor.config import DATA_DIRECTORY, PROCESSED_DIRECTORY
-from ml_world_cup_predictor.data_loading import load_data
+from ml_world_cup_predictor.config import DATA_DIRECTORY
+from ml_world_cup_predictor.data_loading import load_raw_data
 
 
-def transform_match_data(load_directory: Path = DATA_DIRECTORY, write_directory: Path = PROCESSED_DIRECTORY) -> tuple[pd.DataFrame,pd.DataFrame]:
+def transform_match_data(load_directory: Path = DATA_DIRECTORY) -> tuple[pd.DataFrame,pd.DataFrame]:
 
-    frames = load_data(load_directory)
+    frames = load_raw_data(load_directory)
 
     results = frames['results']
     shootouts = frames['shootouts']
@@ -26,10 +26,6 @@ def transform_match_data(load_directory: Path = DATA_DIRECTORY, write_directory:
     choices = ['W','L','W','L']
     played['result'] = np.select(match_conditions,choices,default='D')
     played['goal_diff'] = np.abs(played['home_score'] - played['away_score'])
-    write_directory.mkdir(parents=True,exist_ok=True)
-
-    not_played.to_csv(write_directory / 'not_played.csv',index=True)
-    played.to_csv(write_directory / 'played.csv',index=True)
 
     return played, not_played
 

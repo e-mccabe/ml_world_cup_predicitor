@@ -15,3 +15,5 @@ data/
 # Font Assets
 assets/
 
+# removing plotting setup
+src/ml_world_cup_predictor/plot_theme.py

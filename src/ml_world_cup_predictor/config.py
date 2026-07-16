@@ -22,6 +22,7 @@ class Paths:
 
 PATH = Paths()
 
+
 DATA_DIRECTORY = PROJECT_ROOT / 'data' / 'international-football-results'
 PROCESSED_DIRECTORY = PROJECT_ROOT / 'data' / 'processed'
 

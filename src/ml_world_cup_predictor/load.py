@@ -1,9 +1,9 @@
-import hashlib
-import json
+#import hashlib
+#import json
 import shutil
 import kagglehub
 import pandas as pd
-from datetime import datetime, timezone
+#from datetime import datetime, timezone
 from pathlib import Path
 from ml_world_cup_predictor.config import DATA_DIRECTORY, PROCESSED_DIRECTORY,KAGGLE_LINK,PATH
 
@@ -11,13 +11,18 @@ from ml_world_cup_predictor.config import DATA_DIRECTORY, PROCESSED_DIRECTORY,KA
 
 def process_raw_data(path,refresh:bool = False,**schema) -> dict[str,pd.DataFrame]:
     """Takes any files in the raw folder, handles them via a passed schema and writes to interim directory"""
-
     # Ensure the files exist in the /raw directory or load in new files
     _check_raw_directory(path.raw,refresh)
 
     # Issues with the **schema input, the inpurs will have to be per file to work
 
+
     raw_files = _load_folder_to_dict(path.raw,**schema)
+
+
+    for label, df in raw_files.items():
+        raw_files[label] = _assign_date(df)
+
 
     # Writing dictionary of files to interim folder
     _write_to_interim(raw_files,path.interim)
@@ -28,14 +33,20 @@ def process_raw_data(path,refresh:bool = False,**schema) -> dict[str,pd.DataFram
 
 def _check_raw_directory(path:Path,refresh:bool = False):
     """Looks in the raw directory for files, if it is empty load from kaggle and add to the raw directory"""
+    
+    # Create directory if it doesn't already exists
     path.mkdir(exist_ok=True,parents=True)
 
+    # If the folder is not empty and no force refresh is passed
     if any(path.iterdir()) and not refresh:
         print(f'Raw files available to be loaded: {path}')
     
+    # If there folder is empty or a force refresh is passed
     else:
+        # Link to kaggle dataset
         download_path = kagglehub.dataset_download(KAGGLE_LINK)
         path.parent.mkdir(parents=True, exist_ok=True)
+        # Copies downloaded files from initial location to project folder
         shutil.copytree(download_path, path,dirs_exist_ok=True)
         print("Downloaded dataset to raw directory:", path)
 
@@ -46,14 +57,15 @@ def _load_folder_to_dict(path:Path,**kwargs):
     df_dict =  {file_path.stem : pd.read_csv(file_path, **kwargs) for file_path in sorted(path.glob('*csv'))}
     if not df_dict:
         raise FileNotFoundError(f'No Files Found in: {path}')
-    
     return df_dict
 
 def _write_to_interim(df_dict:dict[str,pd.DataFrame],path:Path) -> None:
     """Takes the dictionary of dataframes with the correct schema and writes to interim folder"""
 
+    # Make sure path exists first before writing the files
     path.mkdir(exist_ok=True,parents=True)
 
+    # Go through writing each file, try parquet first, fall back to csv
     for key,value in df_dict.items():
         try:
             write_path = path / f'{key}.parquet'
@@ -115,8 +127,13 @@ def load_processed_data(processed_directory:Path) -> pd.DataFrame:
 
 def _assign_date(df:pd.DataFrame) -> pd.DataFrame:
 
-    if 'date' in df.columns:
-        df['date'] = pd.to_datetime(df['date'], errors='coerce')
+    date_cols = [col for col in df.columns if 'date' in col]
+
+    for col in date_cols:
+        df[col] = pd.to_datetime(df[col], errors='coerce')
+        print(f'{col} updated to datetime')
+
+    return df
 
 
 def load_data(directory:Path = PROCESSED_DIRECTORY, refresh:bool = False) -> dict[str:pd.DataFrame]:

@@ -20,17 +20,13 @@ class Paths:
     interim:Path    = PROJECT_ROOT / 'data' / 'interim'
     processed:Path  = PROJECT_ROOT / 'data' / 'processed'
 
-PATH = Paths()
 
-
-DATA_DIRECTORY = PROJECT_ROOT / 'data' / 'international-football-results'
-PROCESSED_DIRECTORY = PROJECT_ROOT / 'data' / 'processed'
-
+DATA_PATH = Paths()
 
 # Filtering Parameters
 MINIMUM_GAMES_PLAYED = 30
 
-WC_START = dt.datetime(2026,6,11)
+WORLD_CUP_START = dt.datetime(2026,6,11) # Starting Date of World Cup 2026, used to filter out matches from the current world cup
 
 
 # ELO Parameters
@@ -48,7 +44,8 @@ GAME_WEIGHTS = {
     'CONCACAF Championship':40
 }
 
-
+TOURNAMENT_FALLBACK = 30
+HOME_ADVANTAGE_DEFAULT = 100
 
 # Form Parameters
 FORM_WINDOW = 15

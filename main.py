@@ -1,13 +1,20 @@
-from ml_world_cup_predictor.feature_engineering import generate_match_features
-from ml_world_cup_predictor.data_transformation import transform_match_data 
-from ml_world_cup_predictor.config import DATA_DIRECTORY
+from ml_world_cup_predictor.model import DecisionTree
+from ml_world_cup_predictor.features import build_feature_table
+from ml_world_cup_predictor.utils import chronological_split
+from ml_world_cup_predictor.config import DATA_PATH, WORLD_CUP_START
 
 def main():
 
-    print("Hello from ml-world-cup-predictor!")
-    played,not_played = transform_match_data(DATA_DIRECTORY)
-    df = generate_match_features(played)
-    print(df.tail(5))
+    feature_df = build_feature_table(DATA_PATH,['elo_difference','form_difference'],'result',date_filter=WORLD_CUP_START)
+    train, test = chronological_split(feature_df)
 
+    decision_tree = DecisionTree(max_depth=5)
+
+    decision_tree.fit(train,'result')
+    predictions = decision_tree.predict(test)
+
+    print(len(predictions),len(train))
+
+    return predictions
 if __name__ == "__main__":
     main()

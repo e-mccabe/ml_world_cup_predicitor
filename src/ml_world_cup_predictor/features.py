@@ -1,34 +1,34 @@
 import pandas as pd
 import datetime as dt
-from pathlib import Path
 from collections import deque
 
-from ml_world_cup_predictor.config import STARTING_ELO,FORM_WINDOW,PROCESSED_DIRECTORY,DATA_DIRECTORY,PATH
-from ml_world_cup_predictor.match_filtering import filter_matches_for_rating
+from ml_world_cup_predictor.config import STARTING_ELO,FORM_WINDOW, Paths
 from ml_world_cup_predictor.elo import compute_elo_ratings
-from ml_world_cup_predictor.form import _form_score, _result_to_form_points
-from ml_world_cup_predictor.transform import transform_match_data, transform_datasets
+from ml_world_cup_predictor.form import form_score, result_to_form_points
+from ml_world_cup_predictor.transform import transform_datasets
 
 from ml_world_cup_predictor.utils import generate_team_list, load_folder_to_dict
 
-
-def build_feature_table(path:Path,features:list[str],label_col:str,refresh:bool = False,**filter_kwargs) -> pd.DataFrame:
-
+def build_feature_table(path:Paths,features:list[str],label_col:str,refresh:bool = False,date_filter:dt.datetime = None) -> pd.DataFrame:
+    """Generates the final feature table for the decision tree, creates the elo and form features from past data"""
+    
     if not refresh and any(path.processed.iterdir()):
         processed = load_folder_to_dict(path.processed)['played']
     else:
         processed = transform_datasets(path,refresh)['played']
 
-    columns = features + [label_col]
+    final_columns = features + [label_col]
 
+    # If a date filter exists, filter the df to exclude games on or after that date
+    if date_filter: 
+        processed = processed[processed.date < date_filter]
+
+    # TODO: rework this function using sets and passing the minimum games 
     feature_df = _team_filtering(processed)
 
     feature_df = _create_feature_columns(feature_df)
 
-    if filter_kwargs.get('date',None):
-        feature_df = feature_df[feature_df.date < filter_kwargs['date']]
-
-    return feature_df[columns]
+    return feature_df[final_columns]
 
 
 def _team_filtering(processed_df:pd.DataFrame,**filter_kwargs) -> pd.DataFrame:
@@ -38,7 +38,15 @@ def _team_filtering(processed_df:pd.DataFrame,**filter_kwargs) -> pd.DataFrame:
     teams_mask = (processed_df['home_team'].isin(teams)) & (processed_df['away_team'].isin(teams))
     return processed_df[teams_mask].reset_index(drop=True)
 
-def _create_feature_columns(processed_df:pd.DataFrame):
+
+def _create_feature_columns(processed_df:pd.DataFrame) -> pd.DataFrame:
+    """
+    Iterations in date order to generate the features for downstream machine learning
+    
+    Features:
+        > ELO:  pre-match ELO rating
+        > FORM: pre-match form points (Win = 3, Draw = 1, Loss = 0)
+    """
 
     teams = set(processed_df['home_team']) | set(processed_df['away_team'])
 
@@ -62,11 +70,11 @@ def _create_feature_columns(processed_df:pd.DataFrame):
 
         ### ======= Generating Form =======
         # Pulling the teams previous form
-        home_previous_form = _form_score(recent_results[row.home_team])
-        away_previous_form = _form_score(recent_results[row.away_team])
+        home_previous_form = form_score(recent_results[row.home_team])
+        away_previous_form = form_score(recent_results[row.away_team])
 
         # Calculating the form in terms of points (W = 3, D = 1, L = 0)
-        home_points, away_points = _result_to_form_points(row.result)
+        home_points, away_points = result_to_form_points(row.result)
 
         # Appending New form
         recent_results[row.home_team].append(home_points)
@@ -84,64 +92,3 @@ def _create_feature_columns(processed_df:pd.DataFrame):
     
     return final_df
 
-
-######################################## OLD FUNCTIONS (Still in Use) ########################################
-
-def get_data_for_tree_build(features:list[str],y_col:str,**filter_kwargs) -> pd.DataFrame:
-    features.append(y_col)
-    processed = _load_processed_data()
-    updated_with_features = generate_match_features(processed['played'],**filter_kwargs)
-    return updated_with_features[features]
-
-def generate_match_features(matches_df:pd.DataFrame,stop_date:dt.datetime = None) -> pd.DataFrame:
-
-    matches_filtered, teams = filter_matches_for_rating(matches_df,stop_date) 
-
-    current_rating = {team : STARTING_ELO for team in teams}
-    recent_results = {team:deque(maxlen = FORM_WINDOW) for team in teams}
-    match_history = []
-
-    for row in matches_filtered.itertuples(index = True,name='match'):
-        home_previous_rating = current_rating[row.home_team]
-        away_previous_rating = current_rating[row.away_team]
-
-        home_previous_form = _form_score(recent_results[row.home_team])
-        away_previous_form = _form_score(recent_results[row.away_team])
-
-        new_home_rating, new_away_rating = compute_elo_ratings(row,home_previous_rating,away_previous_rating)
-
-        home_points, away_points = _result_to_form_points(row.result)
-        
-        recent_results[row.home_team].append(home_points)
-        recent_results[row.away_team].append(away_points)
-
-        current_rating[row.home_team] = new_home_rating
-        current_rating[row.away_team] = new_away_rating
-
-
-        match_history.append({
-                        'home_elo'          : home_previous_rating,
-                        'away_elo'          : away_previous_rating,
-                        'elo_difference'    : home_previous_rating-away_previous_rating,
-                        'home_form'         : home_previous_form,
-                        'away_form'         : away_previous_form,
-                        'form_difference'   : home_previous_form - away_previous_form
-                        })
-
-    match_features = pd.DataFrame(match_history)
-
-    matches_filtered = pd.concat([matches_filtered,match_features],axis= 1)
-    
-    return matches_filtered
-
-def _load_processed_data():
-
-    if not any(PROCESSED_DIRECTORY.iterdir()):
-        transform_match_data(DATA_DIRECTORY)
-    return {file_path.stem : pd.read_csv(file_path) for file_path in sorted(PROCESSED_DIRECTORY.glob('*csv'))}
-
-if __name__ == '__main__':
-
-    df = build_feature_table(PATH,['elo_difference','form_difference'],'result')
-    
-    

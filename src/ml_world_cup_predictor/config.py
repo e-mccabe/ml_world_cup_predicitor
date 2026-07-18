@@ -23,11 +23,12 @@ class Paths:
 
 DATA_PATH = Paths()
 
+### ================ PARAMETERS ================
+
 # Filtering Parameters
 MINIMUM_GAMES_PLAYED = 30
 
 WORLD_CUP_START = dt.datetime(2026,6,11) # Starting Date of World Cup 2026, used to filter out matches from the current world cup
-
 
 # ELO Parameters
 STARTING_ELO = 1500

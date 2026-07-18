@@ -24,14 +24,21 @@ class DecisionTree:
         - min_samples_split    : the minimum samples in a node that can be investigated to split
     """
 
-    def __init__(self,max_depth = 20,min_samples_split=2):
+    def __init__(self,max_depth = 20,min_samples_split=2,class_weight = None):
         
         # Parameter for max number of steps into the decision tree
         self.max_depth  = max_depth
         self.min_samples_split = min_samples_split
         self.root = None
+        self.class_weight = class_weight
 
     def fit(self,df,target_column):
+
+        sample_length = len(df[target_column])
+        class_count = df[target_column].nunique()
+
+        if self.class_weight:
+            self.class_weights = (sample_length/(class_count*df[target_column].value_counts()))
 
         self.root = self._build_tree(df,target_column)
     
@@ -58,7 +65,7 @@ class DecisionTree:
 
         # Check if any of the end conditions are met
         if self._is_finished(depth,n_samples,n_class_labels):
-            outcome = df[target_column].value_counts().idxmax()
+            outcome = self._leaf_value(df,target_column)
             return Node(value = outcome)
 
         # Generate Split Dictionary
@@ -77,6 +84,14 @@ class DecisionTree:
 
         return Node(left = left_node,right = right_node,split = optimal_split)
     
+    def _leaf_value(self,df,target_column):
+
+        counts = df[target_column].value_counts()
+
+        if self.class_weights is None:
+            return counts.idxmax()
+        return (counts * self.class_weights).idxmax()
+
     def _traverse_tree(self,x,node):
         """Walk down Decision Tree to provide result"""
         if node.is_leaf():

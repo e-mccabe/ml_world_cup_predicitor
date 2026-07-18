@@ -83,6 +83,7 @@ def _create_feature_columns(processed_df:pd.DataFrame) -> pd.DataFrame:
         # Generating the features for the current row
         match_history.append({
                         'elo_difference'    : home_previous_rating-away_previous_rating,
+                        'abs_elo_difference': abs(home_previous_rating-away_previous_rating),
                         'form_difference'   : home_previous_form - away_previous_form
                         })
         

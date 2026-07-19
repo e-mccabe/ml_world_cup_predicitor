@@ -19,6 +19,7 @@ class Paths:
     raw:Path        = PROJECT_ROOT / 'data' / 'raw'
     interim:Path    = PROJECT_ROOT / 'data' / 'interim'
     processed:Path  = PROJECT_ROOT / 'data' / 'processed'
+    run:Path        = PROJECT_ROOT / 'runs'
 
 
 DATA_PATH = Paths()
@@ -45,7 +46,7 @@ GAME_WEIGHTS = {
     'CONCACAF Championship':40
 }
 
-TOURNAMENT_FALLBACK = 30
+TOURNAMENT_FALLBACK = 20
 HOME_ADVANTAGE_DEFAULT = 100
 
 # Form Parameters

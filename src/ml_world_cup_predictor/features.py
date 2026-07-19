@@ -5,19 +5,27 @@ from collections import deque
 from ml_world_cup_predictor.config import STARTING_ELO,FORM_WINDOW, Paths
 from ml_world_cup_predictor.elo import compute_elo_ratings
 from ml_world_cup_predictor.form import form_score, result_to_form_points
+from ml_world_cup_predictor.head_to_head import generate_head_to_head_pct
 from ml_world_cup_predictor.transform import transform_datasets
 
 from ml_world_cup_predictor.utils import generate_team_list, load_folder_to_dict
 
-def build_feature_table(path:Paths,features:list[str],label_col:str,refresh:bool = False,date_filter:dt.datetime = None) -> pd.DataFrame:
+def build_feature_table(path:Paths,features:list[str],label_col:str,refresh:bool = False,
+                        date_filter:dt.datetime = None,mode:str = 'train') -> pd.DataFrame:
     """Generates the final feature table for the decision tree, creates the elo and form features from past data"""
     
-    if not refresh and any(path.processed.iterdir()):
-        processed = load_folder_to_dict(path.processed)['played']
-    else:
-        processed = transform_datasets(path,refresh)['played']
 
-    final_columns = features + [label_col]
+    if not refresh and any(path.processed.iterdir()):
+        processed = load_folder_to_dict(path.processed)#[data_choice]
+    else:
+        processed = transform_datasets(path,refresh)#[data_choice]
+
+
+    if not date_filter and mode == 'predict':
+        processed = pd.concat(processed.values()).sort_values('date',kind='stable').reset_index(drop = True) 
+
+    else:
+        processed = processed['played']    
 
     # If a date filter exists, filter the df to exclude games on or after that date
     if date_filter: 
@@ -26,8 +34,14 @@ def build_feature_table(path:Paths,features:list[str],label_col:str,refresh:bool
     # TODO: rework this function using sets and passing the minimum games 
     feature_df = _team_filtering(processed)
 
+    feature_df = generate_head_to_head_pct(feature_df,['team','opponent'],'win','h2h_pct')
+    
+    # Generating the draw percent feature based off % win rate for both sides against that opponent
+    feature_df['draw_pct'] = 1 - feature_df['home_h2h_pct'] - feature_df['away_h2h_pct']
     feature_df = _create_feature_columns(feature_df)
 
+    id_columns = ['date','home_team','away_team'] if mode == 'predict' else []
+    final_columns = id_columns + features + [label_col]
     return feature_df[final_columns]
 
 
@@ -56,6 +70,7 @@ def _create_feature_columns(processed_df:pd.DataFrame) -> pd.DataFrame:
 
     for row in processed_df.itertuples(index = True,name='match'):
 
+        is_played = pd.notna(row.home_score)
         ### ======= Generating ELO =======
         # Pulling the previous ratings
         home_previous_rating = current_rating[row.home_team]
@@ -63,10 +78,6 @@ def _create_feature_columns(processed_df:pd.DataFrame) -> pd.DataFrame:
 
         # Using ELO equations to calculate updated ratings
         new_home_rating, new_away_rating = compute_elo_ratings(row,home_previous_rating,away_previous_rating)
-
-        # Updating the ratings
-        current_rating[row.home_team] = new_home_rating
-        current_rating[row.away_team] = new_away_rating
 
         ### ======= Generating Form =======
         # Pulling the teams previous form
@@ -76,12 +87,20 @@ def _create_feature_columns(processed_df:pd.DataFrame) -> pd.DataFrame:
         # Calculating the form in terms of points (W = 3, D = 1, L = 0)
         home_points, away_points = result_to_form_points(row.result)
 
-        # Appending New form
-        recent_results[row.home_team].append(home_points)
-        recent_results[row.away_team].append(away_points)
+        ### ======= Updating Values =======
+        if is_played:
+        # Updating the ratings
+            current_rating[row.home_team] = new_home_rating
+            current_rating[row.away_team] = new_away_rating
+
+            # Appending New form
+            recent_results[row.home_team].append(home_points)
+            recent_results[row.away_team].append(away_points)
 
         # Generating the features for the current row
         match_history.append({
+                        'home_elo'          : home_previous_rating,
+                        'away_elo'          : away_previous_rating,
                         'elo_difference'    : home_previous_rating-away_previous_rating,
                         'abs_elo_difference': abs(home_previous_rating-away_previous_rating),
                         'form_difference'   : home_previous_form - away_previous_form
@@ -92,4 +111,7 @@ def _create_feature_columns(processed_df:pd.DataFrame) -> pd.DataFrame:
     final_df = pd.concat([processed_df,match_features],axis= 1)
     
     return final_df
+
+
+
 

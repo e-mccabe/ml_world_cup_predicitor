@@ -69,6 +69,40 @@ def chronological_split(df:pd.DataFrame,split_ratio:float = 0.8) -> tuple[pd.Dat
     train = df.iloc[:cut_off_index]
     test = df.iloc[cut_off_index:]
 
-    print(len(train),len(test))
-
     return train,test
+
+
+def get_long_team_df(df:pd.DataFrame)-> pd.DataFrame:
+
+    df = df.reset_index(names = 'match_id').copy()
+
+    base_columns = ['match_id','date','home_team','away_team','home_score','away_score','result']
+
+    home_map = {
+        'home_team':'team',
+        'away_team':'opponent',
+        'home_score':'goals_scored',
+        'away_score':'goals_conceded'
+    }
+    
+    away_map = {
+        'home_team':'team',
+        'away_team':'opponent',
+        'home_score':'goals_scored',
+        'away_score':'goals_conceded'
+    }
+
+    home = _get_side_dataframe(df,base_columns,home_map,'W')
+    away = _get_side_dataframe(df,base_columns,away_map,'L')
+
+    return pd.concat([home,away]).sort_values(['date','match_id'],kind = 'stable')
+
+def _get_side_dataframe(df:pd.DataFrame,base_colums:list[str],column_map:dict[str,str],win_sign:str)->pd.DataFrame:
+
+    df = df.copy()
+
+    df = df[base_colums].rename(columns = column_map)
+    df['win'] = (df['result'] == win_sign).astype(float)
+    df['side'] = 'home' if win_sign == 'W' else 'away'
+
+    return df

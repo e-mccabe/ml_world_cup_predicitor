@@ -73,10 +73,11 @@ def _create_results_column(df:pd.DataFrame) -> pd.DataFrame:
     df['home_score'] > df['away_score'],
     df['home_score'] < df['away_score'],
     df['shootout_winner'] == df['home_team'],
-    df['shootout_winner'] == df['away_team']
+    df['shootout_winner'] == df['away_team'],
+    (df['home_score'] == df['away_score']) & df['shootout_winner'].isna()
     ]  
 
-    choices = ['W','L','W','L']
-    df['result'] = np.select(match_conditions,choices,default='D')
+    choices = ['W','L','W','L','D']
+    df['result'] = np.select(match_conditions,choices,default=None)
 
     return df

@@ -20,3 +20,4 @@ src/ml_world_cup_predictor/plot_theme.py
 
 docs/
 notebooks/
+runs/

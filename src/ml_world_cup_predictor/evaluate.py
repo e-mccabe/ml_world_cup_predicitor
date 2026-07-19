@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from ml_world_cup_predictor.logging import ModelMetrics,PerClassMetrics
 
 def confusion_matrix(true_labels:pd.Series,predicted_labels:list)-> pd.DataFrame:
 
@@ -20,15 +21,24 @@ def classification_summary(confusion_matrix:pd.DataFrame):
     row_sum = confusion_matrix.sum(axis=1)
     column_sum = confusion_matrix.sum(axis=0)
 
-    print(f'Accuracy = {100*(correctly_predicted.sum()/row_sum.sum()):.1f}%')
+    accuracy = (correctly_predicted.sum()/row_sum.sum())
 
-    recall = {
+    class_recall = {
         column:predicted/actual  if actual > 0 else 0 
         for column, predicted, actual in zip(confusion_matrix.columns,correctly_predicted,row_sum)}
     
-    precision = {
+    class_precision = {
         column:predicted/actual  if actual > 0 else 0 
         for column, predicted, actual in zip(confusion_matrix.columns,correctly_predicted,column_sum)}
 
-    return pd.DataFrame([recall,precision],index = ['recall','prediction'])
-    
+    class_metrics = PerClassMetrics(
+        recall=class_recall,
+        precision=class_precision
+    )
+
+    model_metrics = ModelMetrics(
+        accuracy=accuracy,
+        class_metrics=class_metrics
+    )
+
+    return pd.DataFrame([class_recall,class_precision],index = ['recall','precision']),model_metrics

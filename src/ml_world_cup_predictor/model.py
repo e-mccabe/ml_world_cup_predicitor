@@ -50,7 +50,7 @@ class DecisionTree:
     ### ---- Helper Functions ----
 
     def _is_finished(self,depth,n_samples,n_class_labels):
-
+        """Checks each node against the stopping condtions, return true or false"""
         condition = (depth >= self.max_depth or n_class_labels == 1 or n_samples < self.min_samples_split)
 
         return condition
@@ -85,10 +85,10 @@ class DecisionTree:
         return Node(left = left_node,right = right_node,split = optimal_split)
     
     def _leaf_value(self,df,target_column):
-
+        """Assign label to leaf node, majority vote as default, weighted count for balanced"""
         counts = df[target_column].value_counts()
 
-        if self.class_weights is None:
+        if self.class_weight is None:
             return counts.idxmax()
         return (counts * self.class_weights).idxmax()
 
